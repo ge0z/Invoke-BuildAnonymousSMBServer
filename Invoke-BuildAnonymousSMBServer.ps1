@@ -56,16 +56,22 @@ function EnableAnonymousSMBServer($Path)
     Write-Host "[+] Enable the Anonymous SMB Server "
     
     Write-Host "[1] Add permissions for the target path: " $Path
-    icacls $Path /T /grant Tout` le` monde:r
+    $acl = Get-Acl $Path
+    $everyoneSid= New-Object System.Security.Principal.SecurityIdentifier "S-1-1-0"
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($everyoneSid,"Read", "ContainerInherit, ObjectInherit", "None", "Allow")
+    $acl.AddAccessRule($rule)
+    Set-Acl $Path $acl
 
     Write-Host "[2] Create the net share for the target path: " $Path
     $ShareName = "smb"
-    $everyone = "Tout le monde"
-    $CommandNetshare = "net share smb=" + $Path + " /grant:" +"`"" +$everyone+ "`"" + ",full"
-    CMD.EXE /C $CommandNetshare
+    $everyoneSidName= $everyoneSid.Translate([System.Security.Principal.NTAccount])
+    New-SmbShare -Name $ShareName -Path $Path -FullAccess $everyoneSidName.Value
 
     Write-Host "[3] Enable the Guest account"
-    net user invité /active:yes
+    $DefaultSID = Get-LocalUser DefaultAccount | Select-Object SID
+    $GuestSID = $DefaultSID.SID.Value.Replace("-503","-501")
+    Get-LocalUser -SID $GuestSID | Enable-LocalUser
+
 
     Write-Host "[4] Set the share that can be accessed anonymously"
     REG ADD "HKLM\System\CurrentControlSet\Services\LanManServer\Parameters" /v NullSessionShares /t REG_MULTI_SZ /d $ShareName /f
@@ -99,14 +105,21 @@ function DisableAnonymousSMBServer($Path)
    
     Write-Host "[1] Remove the permissions for the target path: " $Path
     icacls $Path /remove Tout` le` monde
+    $acl = Get-Acl $Path
+    $everyoneSid= New-Object System.Security.Principal.SecurityIdentifier "S-1-1-0"
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($everyoneSid,"Read", "ContainerInherit, ObjectInherit", "None", "Allow")
+    $acl.RemoveAccessRule($rule)
+    Set-Acl $Path $acl
     
     Write-Host "[2] Delete the net share for the target path: " $Path
     $ShareName = "smb"
-    $CommandNetshare = "net share " + $Path + " /del /y"
-    CMD.EXE /C $CommandNetshare   
+    $everyoneSidName= $everyoneSid.Translate([System.Security.Principal.NTAccount])
+    Remove-SmbShare -Name $ShareName -Force
     
     Write-Host "[3] Disable the Guest account"
-    net user invité /active:no
+    $DefaultSID = Get-LocalUser DefaultAccount | Select-Object SID
+    $GuestSID = $DefaultSID.SID.Value.Replace("-503","-501")
+    Get-LocalUser -SID $GuestSID | Disable-LocalUser
     
     Write-Host "[4] Remove the share that can be accessed anonymously"
     REG DELETE "HKLM\System\CurrentControlSet\Services\LanManServer\Parameters" /v NullSessionShares /f
