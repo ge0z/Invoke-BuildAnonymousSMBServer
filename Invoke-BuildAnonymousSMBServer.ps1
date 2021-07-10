@@ -56,15 +56,17 @@ function EnableAnonymousSMBServer($Path)
     Write-Host "[+] Enable the Anonymous SMB Server "
     
     Write-Host "[1] Add permissions for the target path: " $Path
-    icacls $Path /T /grant Everyone:r
+    icacls $Path /T /grant Tout` le` monde:r
 
     Write-Host "[2] Create the net share for the target path: " $Path
     $ShareName = "smb"
-    $CommandNetshare = "net share smb=" + $Path + " /grant:everyone,full"
+    $everyone = "Tout le monde"
+    $CommandNetshare = "net share smb=" + $Path + " /grant:" +"`"" +$everyone+ "`"" + ",full"
+    Write-Host $CommandNetshare
     CMD.EXE /C $CommandNetshare
 
     Write-Host "[3] Enable the Guest account"
-    net user guest /active:yes
+    net user invité /active:yes
 
     Write-Host "[4] Set the share that can be accessed anonymously"
     REG ADD "HKLM\System\CurrentControlSet\Services\LanManServer\Parameters" /v NullSessionShares /t REG_MULTI_SZ /d $ShareName /f
@@ -97,7 +99,7 @@ function DisableAnonymousSMBServer($Path)
     Write-Host "[+] Disable the Anonymous SMB Server "
    
     Write-Host "[1] Remove the permissions for the target path: " $Path
-    icacls $Path /remove Everyone
+    icacls $Path /remove Tout` le` monde
     
     Write-Host "[2] Delete the net share for the target path: " $Path
     $ShareName = "smb"
@@ -105,7 +107,7 @@ function DisableAnonymousSMBServer($Path)
     CMD.EXE /C $CommandNetshare   
     
     Write-Host "[3] Disable the Guest account"
-    net user guest /active:no
+    net user invité /active:no
     
     Write-Host "[4] Remove the share that can be accessed anonymously"
     REG DELETE "HKLM\System\CurrentControlSet\Services\LanManServer\Parameters" /v NullSessionShares /f
@@ -131,5 +133,3 @@ function DisableAnonymousSMBServer($Path)
 
 
 } 
-
-
